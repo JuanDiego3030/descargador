@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Descargar Video</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+    <h1>Descargar Video de YouTube</h1>
+    <form action="/download" method="post">
+        <label for="video_url">URL del video:</label>
+        <input type="text" id="video_url" name="video_url" required>
+        <div class="g-recaptcha" data-sitekey="6Ld0aa0qAAAAAMQPew3iCQ0jXAjv8ieLf9F9-rlZ"></div>
+        <button type="submit">Descargar</button>
+    </form>
+</body>
+</html>
