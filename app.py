@@ -1,50 +1,52 @@
-from flask import Flask, render_template, request, send_file
-import requests
-from pytubefix import YouTube
+from flask import Flask, render_template, request, send_from_directory
+from pytube import YouTube
+from moviepy.editor import VideoFileClip
 import os
+import shutil
 
 app = Flask(__name__)
-DOWNLOAD_FOLDER = "downloads"
-RECAPTCHA_SECRET = "6Ld0aa0qAAAAAJrbEnUxeFdJtxZHMrTnFMo88RKy"
 
-os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+# Ruta predeterminada para guardar los videos
+DEFAULT_DOWNLOAD_PATH = "downloads"
 
-def verify_recaptcha(response):
-    """
-    Verifica la respuesta del reCAPTCHA con la clave secreta.
-    """
-    url = "https://www.google.com/recaptcha/api/siteverify"
-    data = {
-        'secret': RECAPTCHA_SECRET,
-        'response': response
-    }
-    r = requests.post(url, data=data)
-    return r.json().get("success", False)
+# Asegurarse de que la carpeta de descargas existe
+if not os.path.exists(DEFAULT_DOWNLOAD_PATH):
+    os.makedirs(DEFAULT_DOWNLOAD_PATH)
 
-@app.route('/')
+# Página principal
+@app.route("/", methods=["GET", "POST"])
 def index():
-    return render_template('index.html')
+    if request.method == "POST":
+        # Obtener enlace de YouTube y ruta de descarga
+        video_link = request.form.get("video_link")
+        user_path = request.form.get("download_path", DEFAULT_DOWNLOAD_PATH)
+        
+        # Verificar que los campos no estén vacíos
+        if not video_link or not user_path:
+            return "Faltan datos: Link o ruta de descarga", 400
 
-@app.route('/download', methods=['POST'])
-def download_video():
-    try:
-        # Validar reCAPTCHA
-        recaptcha_response = request.form.get('g-recaptcha-response')
-        if not verify_recaptcha(recaptcha_response):
-            return "Error: Verificación de reCAPTCHA fallida. Inténtalo de nuevo."
+        # Descargar video
+        try:
+            screen_title = "Descargando..."
+            mp4_video = YouTube(video_link).streams.get_highest_resolution().download(user_path)
 
-        # Obtener la URL del video desde el formulario
-        url = request.form.get('video_url')
-        yt = YouTube(url, use_po_token=True)
+            # Abrir y cerrar el video con moviepy para verificar que se descargó correctamente
+            vid_clip = VideoFileClip(mp4_video)
+            vid_clip.close()
 
-        # Seleccionar la mejor resolución disponible
-        video_stream = yt.streams.get_highest_resolution()
-        filepath = os.path.join(DOWNLOAD_FOLDER, f"{yt.title}.mp4")
-        video_stream.download(output_path=DOWNLOAD_FOLDER, filename=f"{yt.title}.mp4")
+            screen_title = "Descarga completa"
+            return f"Descarga completa: {mp4_video}", 200
 
-        return send_file(filepath, as_attachment=True)
-    except Exception as e:
-        return f"Error: {e}"
+        except Exception as e:
+            return f"Error en la descarga: {str(e)}", 500
 
-if __name__ == '__main__':
+    return render_template("index.html")
+
+# Ruta para servir los archivos descargados
+@app.route("/downloads/<filename>")
+def download_file(filename):
+    return send_from_directory(DEFAULT_DOWNLOAD_PATH, filename)
+
+if __name__ == "__main__":
     app.run(debug=True)
+
